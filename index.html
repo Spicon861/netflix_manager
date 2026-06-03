@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StreamControl — Gestión de Cuentas</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #18181f;
+    --border: #2a2a35;
+    --accent: #e50914;
+    --accent2: #ff6b35;
+    --green: #22c55e;
+    --yellow: #f59e0b;
+    --red: #ef4444;
+    --text: #f0f0f5;
+    --muted: #6b6b80;
+    --card-hover: #1e1e28;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: 'DM Mono', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* HEADER */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 0 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 60px;
+    position: sticky; top:0; z-index:100;
+    background: rgba(10,10,15,0.97);
+    backdrop-filter: blur(12px);
+  }
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .logo-icon {
+    width: 26px; height: 26px;
+    background: var(--accent);
+    border-radius: 6px;
+    display: grid; place-items: center;
+    font-size: 13px;
+  }
+  .header-actions { display:flex; gap:8px; align-items:center; }
+  .sync-indicator {
+    font-size: 0.6rem;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .sync-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+  }
+  .sync-dot.syncing { background: var(--yellow); animation: pulse 1s infinite; }
+  .sync-dot.error { background: var(--red); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* STATS BAR */
+  .stats-bar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  .stat {
+    background: var(--surface);
+    padding: 1rem 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .stat-label { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
+  .stat-value { font-family: 'Syne', sans-serif; font-size: 1.5rem; font-weight: 800; }
+  .stat-value.green { color: var(--green); }
+  .stat-value.yellow { color: var(--yellow); }
+  .stat-value.red { color: var(--red); }
+  .stat-value.accent { color: var(--accent); }
+
+  /* ALERTS */
+  .alerts-section {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0.7rem 1.2rem;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    overflow-x: auto;
+  }
+  .alert-chip {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.62rem;
+    font-weight: 500;
+  }
+  .alert-chip.warn { background: rgba(245,158,11,0.1); color: var(--yellow); border: 1px solid rgba(245,158,11,0.3); }
+  .alert-chip.danger { background: rgba(239,68,68,0.1); color: var(--red); border: 1px solid rgba(239,68,68,0.3); }
+  .alerts-label { font-size:0.6rem; color:var(--muted); white-space:nowrap; }
+
+  /* DESKTOP LAYOUT */
+  .main { display: grid; grid-template-columns: 1fr 1fr; gap: 0; height: calc(100vh - 120px); }
+  .panel { overflow-y: auto; border-right: 1px solid var(--border); }
+  .panel:last-child { border-right: none; }
+  .panel-header {
+    padding: 1rem 1.2rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky; top:0;
+    background: var(--surface);
+    z-index:10;
+  }
+  .panel-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .count-badge {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 2px 10px;
+    font-size: 0.68rem;
+    color: var(--muted);
+  }
+
+  /* MOBILE TABS */
+  .mobile-tabs { display: none; }
+
+  /* BUTTONS */
+  .btn {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    padding: 7px 14px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-weight: 500;
+  }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-primary:hover { background: #c40812; }
+  .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+  .btn-ghost:hover { color: var(--text); border-color: var(--muted); }
+  .btn-sm { padding: 5px 10px; font-size: 0.62rem; }
+  .btn-danger { background: transparent; color: var(--red); border: 1px solid var(--red); }
+  .btn-danger:hover { background: var(--red); color: white; }
+  .btn-success { background: transparent; color: var(--green); border: 1px solid var(--green); }
+  .btn-success:hover { background: var(--green); color: black; }
+
+  /* CARDS */
+  .card-list { padding: 0.8rem; display: flex; flex-direction: column; gap: 8px; }
+
+  .account-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.9rem 1.1rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+    overflow: hidden;
+  }
+  .account-card::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--green);
+    border-radius: 3px 0 0 3px;
+  }
+  .account-card.warning::before { background: var(--yellow); }
+  .account-card.expired::before { background: var(--red); }
+  .account-card:hover { background: var(--card-hover); border-color: var(--muted); }
+  .account-card.selected { border-color: var(--accent); background: rgba(229,9,20,0.06); }
+
+  .card-top { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:7px; }
+  .card-email { font-size: 0.8rem; font-weight: 500; color: var(--text); }
+  .card-meta { font-size: 0.62rem; color: var(--muted); margin-top: 2px; }
+  .card-bottom { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+
+  .pill {
+    font-size: 0.58rem;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-weight: 500;
+  }
+  .pill-green { background: rgba(34,197,94,0.12); color: var(--green); border: 1px solid rgba(34,197,94,0.25); }
+  .pill-yellow { background: rgba(245,158,11,0.12); color: var(--yellow); border: 1px solid rgba(245,158,11,0.25); }
+  .pill-red { background: rgba(239,68,68,0.12); color: var(--red); border: 1px solid rgba(239,68,68,0.25); }
+  .pill-muted { background: var(--surface); color: var(--muted); border: 1px solid var(--border); }
+
+  /* CLIENT CARDS */
+  .client-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.9rem 1.1rem;
+    transition: all 0.15s;
+    margin-bottom: 8px;
+  }
+  .client-card:hover { background: var(--card-hover); }
+  .client-top { display:flex; justify-content:space-between; align-items:flex-start; }
+  .client-name { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.88rem; }
+  .client-info { font-size: 0.68rem; color: var(--muted); margin-top: 3px; }
+  .client-bottom { margin-top: 10px; display:flex; gap:6px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
+  .client-actions { display:flex; gap:5px; flex-wrap:wrap; }
+
+  /* DETAIL VIEW */
+  .detail-view { padding: 1.1rem; }
+  .detail-header { margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border); }
+  .detail-email { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.95rem; }
+  .detail-dates { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 1rem 0; }
+  .date-box {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+  .date-box-label { font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 4px; }
+  .date-box-value { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.9rem; }
+  .date-box-days { font-size: 0.62rem; margin-top: 2px; }
+  .clients-in-account { margin-top: 1rem; }
+  .clients-in-label { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 8px; display:flex; justify-content:space-between; align-items:center; }
+
+  .empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--muted);
+    font-size: 0.72rem;
+  }
+  .empty-icon { font-size: 2.5rem; margin-bottom: 10px; opacity: 0.3; }
+
+  /* MODAL */
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.8);
+    z-index: 1000;
+    place-items: center;
+    backdrop-filter: blur(4px);
+  }
+  .modal-overlay.open { display: grid; }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.8rem;
+    width: 480px;
+    max-width: 95vw;
+    max-height: 90vh;
+    overflow-y: auto;
+    animation: modalIn 0.2s ease;
+  }
+  @keyframes modalIn {
+    from { opacity:0; transform: translateY(16px) scale(0.97); }
+    to { opacity:1; transform: translateY(0) scale(1); }
+  }
+  .modal-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 1.05rem;
+    margin-bottom: 1.4rem;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .modal-close { background:none; border:none; color:var(--muted); cursor:pointer; font-size:1.2rem; }
+  .modal-close:hover { color: var(--text); }
+
+  /* FORM */
+  .form-group { margin-bottom: 0.9rem; }
+  .form-label { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); display: block; margin-bottom: 5px; }
+  .form-input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 9px 11px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--text);
+    transition: border-color 0.15s;
+    outline: none;
+  }
+  .form-input:focus { border-color: var(--accent); }
+  .form-input::placeholder { color: var(--muted); }
+  .form-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .form-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:1.4rem; }
+
+  /* CONFIRM MODAL */
+  .confirm-body { font-size: 0.82rem; color: var(--muted); margin-bottom: 1.5rem; line-height: 1.6; }
+  .confirm-subject { color: var(--text); font-weight: 500; }
+
+  /* RENEW MODAL */
+  .renew-info { font-size: 0.75rem; color: var(--muted); margin-bottom: 1.2rem; }
+
+  /* LOADING */
+  .loading-overlay {
+    position: fixed; inset: 0;
+    background: var(--bg);
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+  }
+  .loading-spinner {
+    width: 32px; height: 32px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { font-size: 0.72rem; color: var(--muted); }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  /* TOAST */
+  .toast {
+    position: fixed;
+    bottom: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 18px;
+    font-size: 0.72rem;
+    z-index: 9000;
+    transition: transform 0.25s ease;
+    white-space: nowrap;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.success { border-color: var(--green); color: var(--green); }
+  .toast.error { border-color: var(--red); color: var(--red); }
+
+  /* MOBILE */
+  @media (max-width: 700px) {
+    .main {
+      grid-template-columns: 1fr;
+      height: auto;
+    }
+    .panel {
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+      min-height: 50vh;
+    }
+    .panel[data-tab]:not(.tab-active) { display: none; }
+    .mobile-tabs {
+      display: flex;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 60px;
+      z-index: 50;
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 12px;
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-family: 'DM Mono', monospace;
+      font-size: 0.7rem;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.15s;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .tab-btn.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+    .stats-bar { grid-template-columns: repeat(2, 1fr); }
+    .stat-value { font-size: 1.25rem; }
+    .header-actions .btn { padding: 6px 10px; font-size: 0.65rem; }
+    .sync-indicator span { display: none; }
+    .form-row { grid-template-columns: 1fr; }
+    .modal { padding: 1.4rem; }
+    .client-actions { gap: 4px; }
+    .client-actions .btn { padding: 4px 8px; font-size: 0.6rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="logo" style="margin-bottom:0.5rem">
+    <div class="logo-icon">▶</div>
+    StreamControl
+  </div>
+  <div class="loading-spinner"></div>
+  <div class="loading-text">Conectando con la nube...</div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">▶</div>
+    StreamControl
+  </div>
+  <div class="header-actions">
+    <div class="sync-indicator" id="syncIndicator">
+      <div class="sync-dot" id="syncDot"></div>
+      <span id="syncText">Sincronizado</span>
+    </div>
+    <button class="btn btn-ghost" onclick="openModal('accountModal')">+ Cuenta</button>
+    <button class="btn btn-primary" onclick="openModal('clientModal')">+ Cliente</button>
+  </div>
+</header>
+
+<!-- STATS -->
+<div class="stats-bar">
+  <div class="stat"><div class="stat-label">Cuentas activas</div><div class="stat-value accent" id="statAccounts">0</div></div>
+  <div class="stat"><div class="stat-label">Clientes totales</div><div class="stat-value" id="statClients">0</div></div>
+  <div class="stat"><div class="stat-label">Por vencer</div><div class="stat-value yellow" id="statWarning">0</div></div>
+  <div class="stat"><div class="stat-label">Vencidos</div><div class="stat-value red" id="statExpired">0</div></div>
+</div>
+
+<!-- ALERTS -->
+<div class="alerts-section" id="alertsSection" style="display:none">
+  <span class="alerts-label">⚡</span>
+  <div id="alertChips"></div>
+</div>
+
+<!-- MOBILE TABS -->
+<div class="mobile-tabs" id="mobileTabs">
+  <button class="tab-btn active" onclick="switchTab('accounts')">📺 Cuentas</button>
+  <button class="tab-btn" onclick="switchTab('clients')">👥 Clientes</button>
+</div>
+
+<div class="main">
+  <!-- PANEL IZQUIERDO: CUENTAS -->
+  <div class="panel tab-active" data-tab="accounts">
+    <div class="panel-header">
+      <span class="panel-title">Cuentas Netflix</span>
+      <span class="count-badge" id="accountCount">0</span>
+    </div>
+    <div class="card-list" id="accountList">
+      <div class="empty-state">
+        <div class="empty-icon">📺</div>
+        <div>No hay cuentas registradas</div>
+        <div style="margin-top:8px">Haz clic en "+ Cuenta" para agregar</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANEL DERECHO: DETALLE / CLIENTES -->
+  <div class="panel" data-tab="clients">
+    <div class="panel-header">
+      <span class="panel-title" id="rightPanelTitle">Todos los clientes</span>
+      <span class="count-badge" id="clientCount">0</span>
+    </div>
+    <div id="rightPanelContent">
+      <div class="empty-state" style="margin-top:3rem">
+        <div class="empty-icon">👥</div>
+        <div>No hay clientes aún</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL NUEVA CUENTA -->
+<div class="modal-overlay" id="accountModal">
+  <div class="modal">
+    <div class="modal-title">
+      Nueva Cuenta Netflix
+      <button class="modal-close" onclick="closeModal('accountModal')">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Correo de la cuenta</label>
+      <input class="form-input" id="acc-email" type="email" placeholder="correo@ejemplo.com">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Contraseña</label>
+      <input class="form-input" id="acc-password" type="text" placeholder="Contraseña de Netflix">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Fecha de vencimiento</label>
+        <input class="form-input" id="acc-expiry" type="date">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Perfiles disponibles</label>
+        <input class="form-input" id="acc-slots" type="number" min="1" max="5" placeholder="4">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notas (opcional)</label>
+      <input class="form-input" id="acc-notes" type="text" placeholder="Ej: Plan Premium, PIN...">
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-ghost" onclick="closeModal('accountModal')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveAccount()">Guardar cuenta</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL NUEVO CLIENTE -->
+<div class="modal-overlay" id="clientModal">
+  <div class="modal">
+    <div class="modal-title">
+      Nuevo Cliente
+      <button class="modal-close" onclick="closeModal('clientModal')">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Nombre del cliente</label>
+      <input class="form-input" id="cli-name" type="text" placeholder="Nombre completo">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">WhatsApp / Teléfono</label>
+        <input class="form-input" id="cli-phone" type="text" placeholder="+57 300 000 0000">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Asignar a cuenta</label>
+        <select class="form-input" id="cli-account">
+          <option value="">Seleccionar cuenta...</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Fecha inicio</label>
+        <input class="form-input" id="cli-start" type="date">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Fecha vencimiento</label>
+        <input class="form-input" id="cli-expiry" type="date">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Precio cobrado (COP)</label>
+        <input class="form-input" id="cli-price" type="number" placeholder="15000">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Perfil asignado</label>
+        <input class="form-input" id="cli-profile" type="text" placeholder="Perfil 1">
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-ghost" onclick="closeModal('clientModal')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveClient()">Agregar cliente</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EDITAR CLIENTE -->
+<div class="modal-overlay" id="editClientModal">
+  <div class="modal">
+    <div class="modal-title">
+      Editar Cliente
+      <button class="modal-close" onclick="closeModal('editClientModal')">✕</button>
+    </div>
+    <input type="hidden" id="edit-cli-id">
+    <div class="form-group">
+      <label class="form-label">Nombre del cliente</label>
+      <input class="form-input" id="edit-cli-name" type="text">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">WhatsApp / Teléfono</label>
+        <input class="form-input" id="edit-cli-phone" type="text">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Cuenta asignada</label>
+        <select class="form-input" id="edit-cli-account"></select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Fecha inicio</label>
+        <input class="form-input" id="edit-cli-start" type="date">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Fecha vencimiento</label>
+        <input class="form-input" id="edit-cli-expiry" type="date">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Precio (COP)</label>
+        <input class="form-input" id="edit-cli-price" type="number">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Perfil asignado</label>
+        <input class="form-input" id="edit-cli-profile" type="text">
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-ghost" onclick="closeModal('editClientModal')">Cancelar</button>
+      <button class="btn btn-primary" onclick="updateClient()">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL RENOVAR -->
+<div class="modal-overlay" id="renewModal">
+  <div class="modal" style="max-width:360px">
+    <div class="modal-title">
+      Renovar Cliente
+      <button class="modal-close" onclick="closeModal('renewModal')">✕</button>
+    </div>
+    <input type="hidden" id="renew-cli-id">
+    <div class="renew-info" id="renewInfo"></div>
+    <div class="form-group">
+      <label class="form-label">Nueva fecha de vencimiento</label>
+      <input class="form-input" id="renew-expiry" type="date">
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-ghost" onclick="closeModal('renewModal')">Cancelar</button>
+      <button class="btn btn-success" onclick="confirmRenew()">Renovar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CONFIRMAR BORRADO -->
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal" style="max-width:360px">
+    <div class="modal-title">
+      Confirmar eliminación
+      <button class="modal-close" onclick="closeModal('confirmModal')">✕</button>
+    </div>
+    <div class="confirm-body" id="confirmBody"></div>
+    <div class="form-actions">
+      <button class="btn btn-ghost" onclick="closeModal('confirmModal')">Cancelar</button>
+      <button class="btn btn-danger" id="confirmOkBtn">Eliminar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== SUPABASE CONFIG =====
+const SUPABASE_URL = 'https://ooyffxedzxtrypmdwnwx.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9veWZmeGVkenh0cnlwbWR3bnd4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1MDE0NDAsImV4cCI6MjA5NjA3NzQ0MH0.cFcC6soKnGF4XtAmMHn6ragfXuFWg39yxDVwTVYZdcY';
+
+const headers = {
+  'Content-Type': 'application/json',
+  'apikey': SUPABASE_KEY,
+  'Authorization': `Bearer ${SUPABASE_KEY}`,
+  'Prefer': 'return=representation'
+};
+
+async function dbGet(table) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?order=created_at.asc`, { headers });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+async function dbInsert(table, row) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+    method: 'POST', headers, body: JSON.stringify(row)
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+async function dbUpdate(table, id, changes) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
+    method: 'PATCH', headers, body: JSON.stringify(changes)
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+async function dbDelete(table, id) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
+    method: 'DELETE', headers
+  });
+  if (!r.ok) throw new Error(await r.text());
+}
+
+// ===== STATE =====
+let data = { accounts: [], clients: [] };
+let selectedAccountId = null;
+
+// ===== SYNC UI =====
+function setSyncing() {
+  document.getElementById('syncDot').className = 'sync-dot syncing';
+  document.getElementById('syncText').textContent = 'Guardando...';
+}
+function setSynced() {
+  document.getElementById('syncDot').className = 'sync-dot';
+  document.getElementById('syncText').textContent = 'Sincronizado';
+}
+function setSyncError() {
+  document.getElementById('syncDot').className = 'sync-dot error';
+  document.getElementById('syncText').textContent = 'Error de conexión';
+}
+
+// ===== TOAST =====
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast ${type} show`;
+  setTimeout(() => t.className = `toast ${type}`, 2500);
+}
+
+// ===== HELPERS =====
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
+
+function daysLeft(dateStr) {
+  if (!dateStr) return null;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const d = new Date(dateStr); d.setHours(0,0,0,0);
+  return Math.ceil((d - today) / 86400000);
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return '—';
+  const [y,m,d] = dateStr.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+function daysLabel(days) {
+  if (days === null) return '';
+  if (days < 0) return `Venció hace ${Math.abs(days)}d`;
+  if (days === 0) return 'Vence hoy';
+  return `${days}d restantes`;
+}
+
+function statusColor(days) {
+  if (days === null) return 'green';
+  if (days < 0) return 'red';
+  if (days <= 7) return 'yellow';
+  return 'green';
+}
+
+function formatPrice(p) {
+  if (!p) return '';
+  return '$' + parseInt(p).toLocaleString('es-CO');
+}
+
+// ===== MOBILE TABS =====
+function switchTab(tab) {
+  document.querySelectorAll('[data-tab]').forEach(p => p.classList.remove('tab-active'));
+  document.querySelector(`[data-tab="${tab}"]`).classList.add('tab-active');
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+}
+
+// ===== MODAL =====
+function openModal(id) {
+  document.getElementById(id).classList.add('open');
+  if (id === 'clientModal') populateAccountSelect('cli-account');
+  if (id === 'editClientModal') populateAccountSelect('edit-cli-account');
+}
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
+});
+
+function populateAccountSelect(selectId) {
+  const sel = document.getElementById(selectId);
+  const current = sel.value;
+  sel.innerHTML = '<option value="">Sin asignar</option>' +
+    data.accounts.map(a => `<option value="${a.id}">${a.email}</option>`).join('');
+  if (current) sel.value = current;
+}
+
+// ===== ACCOUNTS =====
+async function saveAccount() {
+  const email = document.getElementById('acc-email').value.trim();
+  const password = document.getElementById('acc-password').value.trim();
+  const expiry = document.getElementById('acc-expiry').value;
+  const slots = parseInt(document.getElementById('acc-slots').value) || 4;
+  const notes = document.getElementById('acc-notes').value.trim();
+  if (!email || !expiry) { showToast('Correo y fecha son obligatorios', 'error'); return; }
+
+  const row = { id: uid(), email, password, expiry, slots, notes };
+  setSyncing();
+  try {
+    await dbInsert('accounts', row);
+    data.accounts.push(row);
+    closeModal('accountModal');
+    ['acc-email','acc-password','acc-expiry','acc-slots','acc-notes'].forEach(i => document.getElementById(i).value = '');
+    setSynced();
+    showToast('Cuenta guardada ✓');
+    render();
+  } catch(e) {
+    setSyncError();
+    showToast('Error al guardar: ' + e.message, 'error');
+  }
+}
+
+function deleteAccount(id) {
+  const acc = data.accounts.find(a => a.id === id);
+  if (!acc) return;
+  document.getElementById('confirmBody').innerHTML =
+    `¿Eliminar la cuenta <span class="confirm-subject">${acc.email}</span>? Los clientes asignados quedarán sin cuenta.`;
+  document.getElementById('confirmOkBtn').onclick = async () => {
+    closeModal('confirmModal');
+    setSyncing();
+    try {
+      // Desvincular clientes
+      const linked = data.clients.filter(c => c.account_id === id);
+      for (const c of linked) {
+        await dbUpdate('clients', c.id, { account_id: null });
+        c.account_id = null;
+      }
+      await dbDelete('accounts', id);
+      data.accounts = data.accounts.filter(a => a.id !== id);
+      if (selectedAccountId === id) selectedAccountId = null;
+      setSynced();
+      showToast('Cuenta eliminada');
+      render();
+    } catch(e) {
+      setSyncError();
+      showToast('Error al eliminar', 'error');
+    }
+  };
+  openModal('confirmModal');
+}
+
+// ===== CLIENTS =====
+async function saveClient() {
+  const name = document.getElementById('cli-name').value.trim();
+  const phone = document.getElementById('cli-phone').value.trim();
+  const account_id = document.getElementById('cli-account').value || null;
+  const start_date = document.getElementById('cli-start').value || null;
+  const expiry = document.getElementById('cli-expiry').value;
+  const price = document.getElementById('cli-price').value;
+  const profile = document.getElementById('cli-profile').value.trim();
+  if (!name || !expiry) { showToast('Nombre y fecha son obligatorios', 'error'); return; }
+
+  const row = { id: uid(), name, phone, account_id, start_date, expiry, price, profile };
+  setSyncing();
+  try {
+    await dbInsert('clients', row);
+    data.clients.push(row);
+    closeModal('clientModal');
+    ['cli-name','cli-phone','cli-start','cli-expiry','cli-price','cli-profile'].forEach(i => document.getElementById(i).value = '');
+    document.getElementById('cli-account').value = '';
+    setSynced();
+    showToast('Cliente agregado ✓');
+    render();
+  } catch(e) {
+    setSyncError();
+    showToast('Error al guardar: ' + e.message, 'error');
+  }
+}
+
+function openEditClient(id) {
+  const c = data.clients.find(x => x.id === id);
+  if (!c) return;
+  document.getElementById('edit-cli-id').value = c.id;
+  document.getElementById('edit-cli-name').value = c.name;
+  document.getElementById('edit-cli-phone').value = c.phone || '';
+  document.getElementById('edit-cli-start').value = c.start_date || '';
+  document.getElementById('edit-cli-expiry').value = c.expiry || '';
+  document.getElementById('edit-cli-price').value = c.price || '';
+  document.getElementById('edit-cli-profile').value = c.profile || '';
+  openModal('editClientModal');
+  setTimeout(() => {
+    populateAccountSelect('edit-cli-account');
+    document.getElementById('edit-cli-account').value = c.account_id || '';
+  }, 50);
+}
+
+async function updateClient() {
+  const id = document.getElementById('edit-cli-id').value;
+  const changes = {
+    name: document.getElementById('edit-cli-name').value.trim(),
+    phone: document.getElementById('edit-cli-phone').value.trim(),
+    account_id: document.getElementById('edit-cli-account').value || null,
+    start_date: document.getElementById('edit-cli-start').value || null,
+    expiry: document.getElementById('edit-cli-expiry').value,
+    price: document.getElementById('edit-cli-price').value,
+    profile: document.getElementById('edit-cli-profile').value.trim(),
+  };
+  setSyncing();
+  try {
+    await dbUpdate('clients', id, changes);
+    const idx = data.clients.findIndex(x => x.id === id);
+    if (idx !== -1) data.clients[idx] = { ...data.clients[idx], ...changes };
+    closeModal('editClientModal');
+    setSynced();
+    showToast('Cliente actualizado ✓');
+    render();
+  } catch(e) {
+    setSyncError();
+    showToast('Error al actualizar', 'error');
+  }
+}
+
+function deleteClient(id) {
+  const c = data.clients.find(x => x.id === id);
+  if (!c) return;
+  document.getElementById('confirmBody').innerHTML =
+    `¿Eliminar al cliente <span class="confirm-subject">${c.name}</span>? Esta acción no se puede deshacer.`;
+  document.getElementById('confirmOkBtn').onclick = async () => {
+    closeModal('confirmModal');
+    setSyncing();
+    try {
+      await dbDelete('clients', id);
+      data.clients = data.clients.filter(x => x.id !== id);
+      setSynced();
+      showToast('Cliente eliminado');
+      render();
+    } catch(e) {
+      setSyncError();
+      showToast('Error al eliminar', 'error');
+    }
+  };
+  openModal('confirmModal');
+}
+
+function openRenewClient(id) {
+  const c = data.clients.find(x => x.id === id);
+  if (!c) return;
+  document.getElementById('renew-cli-id').value = id;
+  document.getElementById('renewInfo').textContent = `Cliente: ${c.name} — Vence actualmente: ${formatDate(c.expiry)}`;
+  document.getElementById('renew-expiry').value = c.expiry || '';
+  openModal('renewModal');
+}
+
+async function confirmRenew() {
+  const id = document.getElementById('renew-cli-id').value;
+  const expiry = document.getElementById('renew-expiry').value;
+  if (!expiry) { showToast('Selecciona una fecha', 'error'); return; }
+  setSyncing();
+  try {
+    await dbUpdate('clients', id, { expiry });
+    const c = data.clients.find(x => x.id === id);
+    if (c) c.expiry = expiry;
+    closeModal('renewModal');
+    setSynced();
+    showToast('Renovación guardada ✓');
+    render();
+  } catch(e) {
+    setSyncError();
+    showToast('Error al renovar', 'error');
+  }
+}
+
+// ===== SELECT ACCOUNT =====
+function selectAccount(id) {
+  selectedAccountId = selectedAccountId === id ? null : id;
+  // En móvil, cambiar a tab de clientes al seleccionar cuenta
+  if (window.innerWidth <= 700 && selectedAccountId) {
+    document.querySelectorAll('[data-tab]').forEach(p => p.classList.remove('tab-active'));
+    document.querySelector('[data-tab="clients"]').classList.add('tab-active');
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-btn')[1].classList.add('active');
+  }
+  render();
+}
+
+// ===== RENDER =====
+function render() {
+  renderStats();
+  renderAlerts();
+  renderAccounts();
+  renderRightPanel();
+}
+
+function renderStats() {
+  const activeAccounts = data.accounts.filter(a => daysLeft(a.expiry) >= 0).length;
+  const expiredAccounts = data.accounts.filter(a => daysLeft(a.expiry) < 0).length;
+  const warnItems = [
+    ...data.accounts.filter(a => { const d = daysLeft(a.expiry); return d >= 0 && d <= 7; }),
+    ...data.clients.filter(c => { const d = daysLeft(c.expiry); return d >= 0 && d <= 7; })
+  ].length;
+  const expiredClients = data.clients.filter(c => daysLeft(c.expiry) < 0).length;
+
+  document.getElementById('statAccounts').textContent = activeAccounts;
+  document.getElementById('statClients').textContent = data.clients.length;
+  document.getElementById('statWarning').textContent = warnItems;
+  document.getElementById('statExpired').textContent = expiredAccounts + expiredClients;
+  document.getElementById('accountCount').textContent = data.accounts.length;
+  document.getElementById('clientCount').textContent = data.clients.length;
+}
+
+function renderAlerts() {
+  const chips = [];
+  data.accounts.forEach(a => {
+    const d = daysLeft(a.expiry);
+    if (d !== null && d >= 0 && d <= 7) chips.push({ type:'warn', text:`Cuenta ${a.email.split('@')[0]} vence en ${d}d` });
+    if (d !== null && d < 0) chips.push({ type:'danger', text:`Cuenta ${a.email.split('@')[0]} VENCIDA` });
+  });
+  data.clients.forEach(c => {
+    const d = daysLeft(c.expiry);
+    if (d !== null && d >= 0 && d <= 7) chips.push({ type:'warn', text:`${c.name} vence en ${d}d` });
+    if (d !== null && d < 0) chips.push({ type:'danger', text:`${c.name} VENCIDO` });
+  });
+  const sec = document.getElementById('alertsSection');
+  if (chips.length === 0) { sec.style.display = 'none'; return; }
+  sec.style.display = 'flex';
+  document.getElementById('alertChips').innerHTML = chips.map(ch =>
+    `<span class="alert-chip ${ch.type}">${ch.type === 'danger' ? '🔴' : '⚠️'} ${ch.text}</span>`
+  ).join('');
+}
+
+function renderAccounts() {
+  const list = document.getElementById('accountList');
+  if (data.accounts.length === 0) {
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">📺</div><div>No hay cuentas registradas</div><div style="margin-top:8px">Haz clic en "+ Cuenta" para agregar</div></div>`;
+    return;
+  }
+  list.innerHTML = data.accounts.map(a => {
+    const days = daysLeft(a.expiry);
+    const sc = statusColor(days);
+    const clientsInAccount = data.clients.filter(c => c.account_id === a.id).length;
+    const selected = selectedAccountId === a.id ? 'selected' : '';
+    const cardClass = sc === 'yellow' ? 'warning' : sc === 'red' ? 'expired' : '';
+    return `
+    <div class="account-card ${cardClass} ${selected}" onclick="selectAccount('${a.id}')">
+      <div class="card-top">
+        <div>
+          <div class="card-email">${a.email}</div>
+          <div class="card-meta">🔑 ${a.password || '—'} · ${a.slots || 4} perfiles</div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();deleteAccount('${a.id}')">✕</button>
+      </div>
+      <div class="card-bottom">
+        <span class="pill pill-${sc}">Vence: ${formatDate(a.expiry)}</span>
+        <span class="pill pill-muted">${clientsInAccount} clientes</span>
+        ${days !== null ? `<span class="pill pill-${sc}">${daysLabel(days)}</span>` : ''}
+        ${a.notes ? `<span class="pill pill-muted" title="${a.notes}">📝</span>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderRightPanel() {
+  const title = document.getElementById('rightPanelTitle');
+  const content = document.getElementById('rightPanelContent');
+  const badge = document.getElementById('clientCount');
+
+  if (!selectedAccountId) {
+    title.textContent = 'Todos los clientes';
+    badge.textContent = data.clients.length;
+    if (data.clients.length === 0) {
+      content.innerHTML = `<div class="empty-state" style="margin-top:3rem"><div class="empty-icon">👥</div><div>No hay clientes aún</div><div style="margin-top:8px">Agrega con "+ Cliente"</div></div>`;
+      return;
+    }
+    content.innerHTML = `<div class="card-list">${data.clients.map(c => renderClientCard(c)).join('')}</div>`;
+    return;
+  }
+
+  const acc = data.accounts.find(a => a.id === selectedAccountId);
+  if (!acc) return;
+  const clients = data.clients.filter(c => c.account_id === selectedAccountId);
+  badge.textContent = clients.length;
+  title.textContent = acc.email.split('@')[0];
+
+  const accDays = daysLeft(acc.expiry);
+  const accSc = statusColor(accDays);
+
+  content.innerHTML = `
+  <div class="detail-view">
+    <div class="detail-header">
+      <div class="detail-email">${acc.email}</div>
+      <div style="font-size:0.68rem;color:var(--muted);margin-top:3px">🔑 ${acc.password || '—'} &nbsp;·&nbsp; ${acc.slots || 4} perfiles</div>
+      ${acc.notes ? `<div style="font-size:0.68rem;color:var(--muted);margin-top:3px">📝 ${acc.notes}</div>` : ''}
+    </div>
+    <div class="detail-dates">
+      <div class="date-box">
+        <div class="date-box-label">Vencimiento cuenta</div>
+        <div class="date-box-value" style="color:var(--${accSc === 'green' ? 'text' : accSc})">${formatDate(acc.expiry)}</div>
+        <div class="date-box-days" style="color:var(--${accSc})">${daysLabel(accDays)}</div>
+      </div>
+      <div class="date-box">
+        <div class="date-box-label">Clientes activos</div>
+        <div class="date-box-value">${clients.filter(c => daysLeft(c.expiry) >= 0).length} / ${acc.slots || 4}</div>
+        <div class="date-box-days" style="color:var(--muted)">perfiles usados</div>
+      </div>
+    </div>
+    <div class="clients-in-account">
+      <div class="clients-in-label">
+        <span>Clientes en esta cuenta</span>
+        <button class="btn btn-ghost btn-sm" onclick="openModal('clientModal')">+ Agregar</button>
+      </div>
+      ${clients.length === 0
+        ? `<div class="empty-state" style="padding:2rem"><div class="empty-icon">👤</div><div>Sin clientes asignados</div></div>`
+        : clients.map(c => renderClientCard(c)).join('')}
+    </div>
+  </div>`;
+}
+
+function renderClientCard(c) {
+  const days = daysLeft(c.expiry);
+  const sc = statusColor(days);
+  const acc = c.account_id ? data.accounts.find(a => a.id === c.account_id) : null;
+  return `
+  <div class="client-card">
+    <div class="client-top">
+      <div>
+        <div class="client-name">${c.name}</div>
+        <div class="client-info">${c.phone ? '📱 ' + c.phone : ''} ${c.profile ? '· 👤 ' + c.profile : ''} ${c.price ? '· ' + formatPrice(c.price) : ''}</div>
+        ${!selectedAccountId && acc ? `<div class="client-info" style="margin-top:2px">📺 ${acc.email}</div>` : ''}
+      </div>
+      <span class="pill pill-${sc}">${formatDate(c.expiry)}</span>
+    </div>
+    <div class="client-bottom">
+      <span class="pill pill-${sc}">${daysLabel(days)}</span>
+      <div class="client-actions">
+        <button class="btn btn-success btn-sm" onclick="openRenewClient('${c.id}')">Renovar</button>
+        <button class="btn btn-ghost btn-sm" onclick="openEditClient('${c.id}')">Editar</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteClient('${c.id}')">✕</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ===== INIT =====
+async function init() {
+  try {
+    const [accounts, clients] = await Promise.all([
+      dbGet('accounts'),
+      dbGet('clients')
+    ]);
+    data.accounts = accounts;
+    data.clients = clients;
+    setSynced();
+    render();
+  } catch(e) {
+    setSyncError();
+    showToast('No se pudo conectar a la nube', 'error');
+    console.error(e);
+  } finally {
+    document.getElementById('loadingOverlay').style.display = 'none';
+  }
+}
+
+init();
+</script>
+</body>
+</html>
